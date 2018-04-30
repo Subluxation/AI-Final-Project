@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import spacesettlers.actions.AbstractAction;
+import spacesettlers.actions.MoveAction;
 import spacesettlers.actions.MoveToObjectAction;
 import spacesettlers.objects.AbstractObject;
 import spacesettlers.objects.Asteroid;
@@ -13,6 +14,7 @@ import spacesettlers.objects.Flag;
 import spacesettlers.objects.Ship;
 import spacesettlers.simulator.Toroidal2DPhysics;
 import spacesettlers.utilities.Position;
+import spacesettlers.utilities.Vector2D;
 /**
  * Planning class used for doling out tasks depending on satisfied pre-conditions
  * @author SpencerBarnes & Anthony Nguyen
@@ -23,8 +25,11 @@ public class Planning {
 
 	public static HashMap<UUID, AbstractObject> shipGoal;
 	public static HashMap<UUID, String> shipRole;
+	public static HashMap<UUID, Boolean> shipFlag;
+	public static HashMap<UUID, String> shipLocation;
 
 //	public static UUID shipID;
+	public static boolean baseLeft;
 	public static String role;
 	public static AbstractObject goalObj;
 	//make sure to update the space every time this class is called on
@@ -36,6 +41,8 @@ public class Planning {
 	public Planning(Toroidal2DPhysics newSpace) {
 		shipGoal = new HashMap<UUID, AbstractObject>();
 		shipRole = new HashMap<UUID, String>();
+		shipFlag = new HashMap<UUID,Boolean>();
+		shipLocation = new HashMap<UUID,String>();
 //		space = newSpace;
 	}
 
@@ -58,6 +65,16 @@ public class Planning {
 		shipRole.put(shipID, role);
 	}
 	/**
+	 * Is the ship assigned to a location?
+	 * @param shipID
+	 * @return
+	 */
+	public static boolean isInShipLoc(UUID shipID) {
+		return shipLocation.containsKey(shipID);
+	}
+
+	
+	/**
 	 * Adding a ship with its associated goal to the hashmap
 	 * @param shipID
 	 * @param goalObj
@@ -77,32 +94,112 @@ public class Planning {
 	//ACTIONS
 
 	/**
+	 * Places a flag carrier in between two possible flag spawns, depending on base location
+	 * **FOR 2 FLAG SHIPS ONLY**
+	 * @param shipID
+	 * @return action
+	 */
+	public static AbstractAction WaitForFlag2(Toroidal2DPhysics space, UUID shipID) {
+		//If a ship has a flag
+		Ship ship = (Ship) space.getObjectById(shipID);
+		if(shipFlag.containsValue(true)) {
+			//if the base is on the left
+			if(baseLeft == true) {
+				Position right = new Position(1270,550);
+				AbstractAction action = new MoveAction(space,ship.getPosition(),right,new Vector2D(0,0));
+				return action;
+				
+			}
+			//if base is on the right
+			else {
+				Position left = new Position(330,550);
+				AbstractAction action = new MoveAction(space,ship.getPosition(),left,new Vector2D(0,0));
+				return action;
+			}
+		}
+		return null;
+	}
+	
+	public static AbstractAction WaitForFlag3(Toroidal2DPhysics space, UUID shipID) {
+		Ship ship = (Ship) space.getObjectById(shipID);
+		//If a ship has a flag
+		if(shipFlag.containsValue(true)) {
+			if(baseLeft == true) {
+				if(isInShipLoc(shipID)) {
+					if(shipLocation.get(shipID).equalsIgnoreCase("top")) {
+						Position right = new Position(1270,250);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),right,new Vector2D(0,0));
+						return action;
+					}else {
+						Position left = new Position(1270,800);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),left,new Vector2D(0,0));
+						return action;
+					}
+				}
+				//not in shipLocation
+				else {
+					
+				}
+			}
+		}
+		
+		
+		
+		return null;
+	}
+	
+	/**
 	 * Move to flag action
 	 * @param shipID
 	 * @param obj
 	 * @return
 	 */
-	public AbstractAction Move2Flag(UUID shipID, AbstractObject obj, Toroidal2DPhysics space) {
+	public static AbstractAction Move2Flag(Toroidal2DPhysics space,UUID shipID, AbstractObject obj) {
 		//Pre-conditions
 		if(obj instanceof Flag) {
-			if(!isGoal(((Flag) obj).getPosition())) {
+			if(!isGoal(((Flag) obj))) {
 				if(shipRole.get(shipID).equalsIgnoreCase("flag")) {
-//					Ship ship = (Ship) space.getObjectById(shipID);
-//					System.out.println(shipID);
-//					System.out.println("Ship: " + ship.getEnergy());
-//					System.out.println("Flag: " + obj.getPosition());
-//					AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
+					if(obj.getPosition().getX() < 900) {
+						baseLeft = false;
+					}
+					else {
+						baseLeft = true;
+					}
 					
-					AbstractObject abst = space.getObjectById(shipID);
-					Ship ship = (Ship) abst;
-
-					System.out.println("Obj: " + space.getObjectById(obj.getId()));
+					Ship ship = (Ship) space.getObjectById(shipID);
 					AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
 					return action;
 				}
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * Will deposit the flag or resources at base.
+	 * @param shipID
+	 * @param obj
+	 * @return
+	 */
+	public static AbstractAction Deposit(Toroidal2DPhysics space, UUID shipID, AbstractObject obj) {
+		//Pre-Conditions
+		Ship ship = (Ship) space.getObjectById(shipID);
+		
+			if(shipFlag.get(shipID).booleanValue()) {
+				//Deposit Flag
+				AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
+				shipGoal.remove(shipID, obj);
+				return action;
+			}
+			if(GetNumResources(shipID,space) >= 5000) {
+				//Deposit resources
+				AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
+				shipGoal.remove(shipID, obj);
+				return action;
+			}
+		
+		return null;
+		
 	}
 
 	/**
@@ -114,7 +211,7 @@ public class Planning {
 	public AbstractAction Move(UUID shipID, AbstractObject obj, Toroidal2DPhysics space) {
 		//Pre-Conditions
 		if(obj instanceof Base) {
-			if(!isGoal(((Base) obj).getPosition())) {
+			if(!isGoal(((Base) obj))) {
 				if(shipRole.get(shipID).equalsIgnoreCase("asteroid")) {
 					Ship ship = (Ship) space.getObjectById(shipID);
 					AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
@@ -123,7 +220,7 @@ public class Planning {
 			}
 		}
 		if(obj instanceof Asteroid) {
-			if(!isGoal(((Asteroid) obj).getPosition())) {
+			if(!isGoal(((Asteroid) obj))) {
 				if(shipRole.get(shipID).equalsIgnoreCase("asteroid")) {
 					if(GetNumResources(shipID, space) < 5000) {
 						Ship ship = (Ship) space.getObjectById(shipID);
@@ -146,20 +243,16 @@ public class Planning {
 	 * @param shipID
 	 * @return
 	 */
-	public static boolean HasFlag(UUID shipID, Toroidal2DPhysics space) {
-		Set<AbstractObject> objects = space.getAllObjects();
-		for (AbstractObject aO: objects){
-			if(aO.getId() == shipID) {
-				Ship ship = (Ship) aO;
-				if(ship.isCarryingFlag()) {
-					return true;
-				}
-				else {
-					break;
-				}
+	public static void HasFlag(UUID shipID, Toroidal2DPhysics space) {
+		if(shipRole.get(shipID).equalsIgnoreCase("flag")) {
+			Ship ship = (Ship) space.getObjectById(shipID);
+			if(ship.isCarryingFlag()) {
+				shipFlag.replace(shipID, true);
+			}
+			else {
+				shipFlag.replace(shipID, false);
 			}
 		}
-		return false;
 	}
 	/**
 	 * Gets the number of resources held by the ship
@@ -207,9 +300,13 @@ public class Planning {
 	 * @param location
 	 * @return
 	 */
-	public static boolean isGoal(Position location) {
-		//TODO: Finish
-		return false;
+	public static boolean isGoal(AbstractObject obj) {
+		if(shipGoal.containsValue(obj)) {
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 	
 	public HashMap<UUID, String> getShipRoles()
