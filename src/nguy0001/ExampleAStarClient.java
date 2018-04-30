@@ -1,5 +1,6 @@
 package nguy0001;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +20,7 @@ import spacesettlers.actions.PurchaseCosts;
 import spacesettlers.actions.PurchaseTypes;
 import spacesettlers.clients.TeamClient;
 import spacesettlers.graphics.SpacewarGraphics;
+import spacesettlers.graphics.StarGraphics;
 import spacesettlers.objects.AbstractActionableObject;
 import spacesettlers.objects.AbstractObject;
 import spacesettlers.objects.Asteroid;
@@ -37,10 +39,13 @@ import spacesettlers.utilities.Position;
  * @author amy
  */
 public class ExampleAStarClient extends TeamClient {
+	Planning planner;
 	FollowPathAction followPathAction;
 	HashMap <UUID, Graph> graphByShip;
+	final String FLAG = "flag";
+	final String ASTEROID = "asteroid";
 	int currentSteps;
-	int REPLAN_STEPS = 5;
+	int REPLAN_STEPS = 25;
 	boolean flagCollected = false;
 	/**
 	 * Assigns ships to asteroids and beacons, as described above
@@ -48,42 +53,71 @@ public class ExampleAStarClient extends TeamClient {
 	public Map<UUID, AbstractAction> getMovementStart(Toroidal2DPhysics space,
 			Set<AbstractActionableObject> actionableObjects) {
 		HashMap<UUID, AbstractAction> actions = new HashMap<UUID, AbstractAction>();
+		HashMap<UUID, String> shipRoles = planner.getShipRoles();
 
 		// loop through each ship
 		for (AbstractObject actionable :  actionableObjects) {
 			if (actionable instanceof Ship) {
 				Ship ship = (Ship) actionable;
 				AbstractAction current = ship.getCurrentAction();
-
 				
-				//If flagShip
-				if ((current == null || currentSteps >= REPLAN_STEPS) && flagCollected == false) {
-					Flag objective = getEnemyFlag(space);
-					AbstractAction action = getAStarPathToGoal(space, ship, objective.getPosition());
-					actions.put(ship.getId(), action);
-					currentSteps = 0;
+				if (planner.getNumFlagShips() < 2 && !shipRoles.containsKey(ship.getId()))
+				{
+					shipRoles.put(ship.getId(), FLAG);
+					planner.add2RoleHash(ship.getId(), FLAG);
+//					System.out.println("ADDED FLAG SHIP");
+				}
+				else if (!shipRoles.containsKey(ship.getId()))
+				{
+					shipRoles.put(ship.getId(), ASTEROID);
+					planner.add2RoleHash(ship.getId(), ASTEROID);
+//					System.out.println("ADDED ASTEROID SHIP");
 				}
 				
-				//return to base ASAP
-				if(ship.isCarryingFlag() == true) {
-					flagCollected = true;
-					Base home = findNearestBase(space, ship);
-					AbstractAction action = getAStarPathToGoal(space,ship,home.getPosition());
-					actions.put(ship.getId(), action);
+				String role = shipRoles.get(ship.getId());
+				if (role.equals(FLAG))
+				{
+					if (current == null && flagCollected == false)
+					{
+						Flag obj = getEnemyFlag(space);
+						actions.put(ship.getId(), planner.Move2Flag(ship.getId(), obj, space));
+					}
+					else if (ship.isCarryingFlag() == true)
+					{
+						flagCollected = true;
+						Base base = findNearestBase(space, ship);
+						actions.put(ship.getId(), planner.Move(ship.getId(), base, space));
+					}
 				}
-				
-				
-				
-				
-				
-				
-				
-				if (current == null || currentSteps >= REPLAN_STEPS) {
+				else if (role.equals(ASTEROID))
+				{
 					Beacon beacon = pickNearestBeacon(space, ship);
 					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
 					actions.put(ship.getId(), action);
-					currentSteps = 0;
 				}
+				
+//				//If flagShip
+//				if ((current == null || currentSteps >= REPLAN_STEPS) && flagCollected == false) {
+//					Flag objective = getEnemyFlag(space);
+//					AbstractAction action = getAStarPathToGoal(space, ship, objective.getPosition());
+//					actions.put(ship.getId(), action);
+//					currentSteps = 0;
+//				}
+//				
+//				//return to base ASAP
+//				if(ship.isCarryingFlag() == true) {
+//					flagCollected = true;
+//					Base home = findNearestBase(space, ship);
+//					AbstractAction action = getAStarPathToGoal(space,ship,home.getPosition());
+//					actions.put(ship.getId(), action);
+//				}				
+//				
+//				if (current == null || currentSteps >= REPLAN_STEPS) {
+//					Beacon beacon = pickNearestBeacon(space, ship);
+//					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
+//					actions.put(ship.getId(), action);
+//					currentSteps = 0;
+//				}
 			} else {
 				// it is a base.  Do nothing
 				actions.put(actionable.getId(), new DoNothingAction());
@@ -177,6 +211,7 @@ public class ExampleAStarClient extends TeamClient {
 
 	@Override
 	public void initialize(Toroidal2DPhysics space) {
+		planner = new Planning(space);
 		graphByShip = new HashMap<UUID, Graph>();
 		currentSteps = 0;
 	}
