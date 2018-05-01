@@ -119,7 +119,12 @@ public class Planning {
 		}
 		return null;
 	}
-	
+	/**
+	 * If the there are 3 flag ships, designate 2 different wait locations
+	 * @param space
+	 * @param shipID
+	 * @return
+	 */
 	public static AbstractAction WaitForFlag3(Toroidal2DPhysics space, UUID shipID) {
 		Ship ship = (Ship) space.getObjectById(shipID);
 		//If a ship has a flag
@@ -127,18 +132,58 @@ public class Planning {
 			if(baseLeft == true) {
 				if(isInShipLoc(shipID)) {
 					if(shipLocation.get(shipID).equalsIgnoreCase("top")) {
-						Position right = new Position(1270,250);
-						AbstractAction action = new MoveAction(space,ship.getPosition(),right,new Vector2D(0,0));
+						Position top = new Position(1270,250);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),top,new Vector2D(0,0));
 						return action;
 					}else {
-						Position left = new Position(1270,800);
-						AbstractAction action = new MoveAction(space,ship.getPosition(),left,new Vector2D(0,0));
+						Position bttm = new Position(1270,800);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),bttm,new Vector2D(0,0));
 						return action;
 					}
 				}
 				//not in shipLocation
 				else {
-					
+					if(shipLocation.containsValue("bottom")) {
+						shipLocation.put(shipID, "top");
+						Position top = new Position(1270,250);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),top,new Vector2D(0,0));
+						return action;
+					}
+					else if (shipLocation.containsValue("top")) {
+						shipLocation.put(shipID, "bottom");
+						Position bttm = new Position(1270,800);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),bttm,new Vector2D(0,0));
+						return action;
+					}
+				}
+			}
+			//base is on the right
+			else {
+				if(isInShipLoc(shipID)) {
+					if(shipLocation.get(shipID).equalsIgnoreCase("top")) {
+						Position top = new Position(330,250);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),top,new Vector2D(0,0));
+						return action;
+					}else {
+						Position bttm = new Position(330,800);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),bttm,new Vector2D(0,0));
+						return action;
+					}
+				}
+				//not in shipLocation
+				else {
+					if(shipLocation.containsValue("bottom")) {
+						shipLocation.put(shipID, "top");
+						Position top = new Position(330,250);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),top,new Vector2D(0,0));
+						return action;
+					}
+					else if (shipLocation.containsValue("top")) {
+						shipLocation.put(shipID, "bottom");
+						Position bttm = new Position(330,800);
+						AbstractAction action = new MoveAction(space,ship.getPosition(),bttm,new Vector2D(0,0));
+						return action;
+					}
 				}
 			}
 		}
