@@ -83,17 +83,21 @@ public class ExampleAStarClient extends TeamClient {
 					{
 //						System.out.println("Collecting Enemy Flag...");
 						Flag obj = getEnemyFlag(space);
-						actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
+						if(obj.isBeingCarried()) {
+							actions.put(ship.getId(), Planning.WaitForFlag2(space, ship.getId()));
+						}
+						else {
+							actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
+
+						}
+//						actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
 					}
-					//Newly added***
-					else if (flagCollected == true && !ship.isCarryingFlag()) {
-						actions.put(ship.getId(), Planning.WaitForFlag2(space, ship.getId()));
-					}
+
 					else if (ship.isCarryingFlag() == true)
 					{
 						flagCollected = true;
 						Base base = findNearestBase(space, ship);
-						actions.put(ship.getId(), planner.Move(ship.getId(), base, space));
+						actions.put(ship.getId(), Planning.Deposit(space,ship.getId(), base));
 					}
 				}
 				else if (role.equals(ASTEROID))
