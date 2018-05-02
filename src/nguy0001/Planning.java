@@ -1,9 +1,15 @@
 package nguy0001;
 
 import java.util.HashMap;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
+import nguy0001.ExampleAStarClient;
+import nguy0001.astar.AStarSearch;
+import nguy0001.astar.FollowPathAction;
+import nguy0001.astar.Graph;
+import nguy0001.astar.Vertex;
 import spacesettlers.actions.AbstractAction;
 import spacesettlers.actions.MoveAction;
 import spacesettlers.actions.MoveToObjectAction;
@@ -212,7 +218,8 @@ public class Planning {
 					}
 					
 					Ship ship = (Ship) space.getObjectById(shipID);
-					AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
+					AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+					//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
 					return action;
 				}
 			}
@@ -232,13 +239,15 @@ public class Planning {
 		
 			if(shipFlag.get(shipID).booleanValue()) {
 				//Deposit Flag
-				AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
+				AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+				//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
 				shipGoal.remove(shipID, obj);
 				return action;
 			}
 			if(GetNumResources(shipID,space) >= 5000) {
 				//Deposit resources
-				AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
+				AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+				//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
 				shipGoal.remove(shipID, obj);
 				return action;
 			}
@@ -259,7 +268,8 @@ public class Planning {
 			if(!isGoal(((Base) obj))) {
 				if(shipRole.get(shipID).equalsIgnoreCase("asteroid")) {
 					Ship ship = (Ship) space.getObjectById(shipID);
-					AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
+					AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+					//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
 					return action;
 				}
 			}
@@ -269,7 +279,8 @@ public class Planning {
 				if(shipRole.get(shipID).equalsIgnoreCase("asteroid")) {
 					if(GetNumResources(shipID, space) < 5000) {
 						Ship ship = (Ship) space.getObjectById(shipID);
-						AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
+						AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+						//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(), obj);
 						return action;
 					}
 
@@ -381,5 +392,24 @@ public class Planning {
 		return count;
 	}
 
+	/**
+	 * Follow an aStar path to the goal
+	 * @param space
+	 * @param ship
+	 * @param goalPosition
+	 * @return
+	 */
+	private static AbstractAction getAStarPathToGoal(Toroidal2DPhysics space, Ship ship, Position goalPosition) {
+		AbstractAction newAction;
+		
+		Graph graph = AStarSearch.createGraphToGoalWithBeacons(space, ship, goalPosition, new Random());
+		Vertex[] path = graph.findAStarPath(space);
+		FollowPathAction followPathAction = new FollowPathAction(path);
+		//followPathAction.followNewPath(path);
+		newAction = followPathAction.followPath(space, ship);
+		HashMap<UUID, Graph> graphByShip = new HashMap<UUID, Graph>();
+		graphByShip.put(ship.getId(), graph);
+		return newAction;
+	}
 
 }

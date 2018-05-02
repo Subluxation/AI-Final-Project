@@ -65,22 +65,29 @@ public class ExampleAStarClient extends TeamClient {
 				{
 					shipRoles.put(ship.getId(), FLAG);
 					planner.add2RoleHash(ship.getId(), FLAG);
-//					System.out.println("ADDED FLAG SHIP");
+					System.out.println("ADDED FLAG SHIP");
 				}
 				else if (!shipRoles.containsKey(ship.getId()))
 				{
 					shipRoles.put(ship.getId(), ASTEROID);
 					planner.add2RoleHash(ship.getId(), ASTEROID);
-//					System.out.println("ADDED ASTEROID SHIP");
+					System.out.println("ADDED ASTEROID SHIP");
 				}
 				
 				String role = shipRoles.get(ship.getId());
+//				System.out.println("ROLE: " + role);
 				if (role.equals(FLAG))
 				{
-					if (current == null && flagCollected == false)
+					//current == null
+					if (flagCollected == false)
 					{
+//						System.out.println("Collecting Enemy Flag...");
 						Flag obj = getEnemyFlag(space);
-						actions.put(ship.getId(), planner.Move2Flag(ship.getId(), obj, space));
+						actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
+					}
+					//Newly added***
+					else if (flagCollected == true && !ship.isCarryingFlag()) {
+						actions.put(ship.getId(), Planning.WaitForFlag2(space, ship.getId()));
 					}
 					else if (ship.isCarryingFlag() == true)
 					{
@@ -95,7 +102,7 @@ public class ExampleAStarClient extends TeamClient {
 					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
 					actions.put(ship.getId(), action);
 				}
-				
+//				
 //				//If flagShip
 //				if ((current == null || currentSteps >= REPLAN_STEPS) && flagCollected == false) {
 //					Flag objective = getEnemyFlag(space);
