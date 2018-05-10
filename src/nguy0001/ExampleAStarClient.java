@@ -15,7 +15,7 @@ import nguy0001.astar.Graph;
 import nguy0001.astar.Vertex;
 import spacesettlers.actions.AbstractAction;
 import spacesettlers.actions.DoNothingAction;
-import spacesettlers.actions.MoveToObjectAction;
+import nguy0001.MoveToObjectAction;
 import spacesettlers.actions.PurchaseCosts;
 import spacesettlers.actions.PurchaseTypes;
 import spacesettlers.clients.TeamClient;
@@ -39,13 +39,14 @@ import spacesettlers.utilities.Position;
  * @author amy
  */
 public class ExampleAStarClient extends TeamClient {
+	HashMap <UUID, Ship> asteroidToShipMap;
 	Planning planner;
 	FollowPathAction followPathAction;
 	HashMap <UUID, Graph> graphByShip;
 	final String FLAG = "flag";
 	final String ASTEROID = "asteroid";
-	int currentSteps;
-	int REPLAN_STEPS = 25;
+
+	int REPLAN_STEPS = 100;
 	boolean flagCollected = false;
 	/**
 	 * Assigns ships to asteroids and beacons, as described above
@@ -60,7 +61,7 @@ public class ExampleAStarClient extends TeamClient {
 			if (actionable instanceof Ship) {
 				Ship ship = (Ship) actionable;
 				AbstractAction current = ship.getCurrentAction();
-				
+
 				if (planner.getNumFlagShips() < 2 && !shipRoles.containsKey(ship.getId()))
 				{
 					shipRoles.put(ship.getId(), FLAG);
@@ -73,71 +74,81 @@ public class ExampleAStarClient extends TeamClient {
 					planner.add2RoleHash(ship.getId(), ASTEROID);
 					System.out.println("ADDED ASTEROID SHIP");
 				}
-				
+
 				String role = shipRoles.get(ship.getId());
-//				System.out.println("ROLE: " + role);
+				//				System.out.println("ROLE: " + role);
 				if (role.equals(FLAG))
 				{
+					Flag obj = getEnemyFlag(space);
+					if (obj != null) {
+						flagCollected = false;
+					}
 					//current == null
-					if (flagCollected == false)
+					if (flagCollected == false || !ship.isCarryingFlag())
 					{
-//						System.out.println("Collecting Enemy Flag...");
-						Flag obj = getEnemyFlag(space);
-						if(obj.isBeingCarried()) {
+						//						System.out.println("Collecting Enemy Flag...");
+						obj = getEnemyFlag(space);
+						if(obj.isBeingCarried() || obj == null) {
 							actions.put(ship.getId(), Planning.WaitForFlag2(space, ship.getId()));
 						}
 						else {
-							actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
+							AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
+							actions.put(ship.getId(), action);
+//							actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
 
 						}
-//						actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
+						//						actions.put(ship.getId(), Planning.Move2Flag(space,ship.getId(), obj));
 					}
-
-					else if (ship.isCarryingFlag() == true)
+					if (ship.isCarryingFlag())
 					{
 						flagCollected = true;
-						Base base = findNearestBase(space, ship);
+						Base base = findNearestBase(space, ship);	
 						actions.put(ship.getId(), Planning.Deposit(space,ship.getId(), base));
 					}
 				}
 				else if (role.equals(ASTEROID))
 				{
-					Beacon beacon = pickNearestBeacon(space, ship);
-					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
-					actions.put(ship.getId(), action);
+					AbstractAction action;
+					Asteroid asteroid = pickHighestValueNearestFreeAsteroid(space, ship);
+					actions.put(ship.getId(), Planning.Move(ship.getId(), asteroid,space));
+
+					//					Beacon beacon = pickNearestBeacon(space, ship);
+					//					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
+
+					//					actions.put(ship.getId(), action);
 				}
-//				
-//				//If flagShip
-//				if ((current == null || currentSteps >= REPLAN_STEPS) && flagCollected == false) {
-//					Flag objective = getEnemyFlag(space);
-//					AbstractAction action = getAStarPathToGoal(space, ship, objective.getPosition());
-//					actions.put(ship.getId(), action);
-//					currentSteps = 0;
-//				}
-//				
-//				//return to base ASAP
-//				if(ship.isCarryingFlag() == true) {
-//					flagCollected = true;
-//					Base home = findNearestBase(space, ship);
-//					AbstractAction action = getAStarPathToGoal(space,ship,home.getPosition());
-//					actions.put(ship.getId(), action);
-//				}				
-//				
-//				if (current == null || currentSteps >= REPLAN_STEPS) {
-//					Beacon beacon = pickNearestBeacon(space, ship);
-//					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
-//					actions.put(ship.getId(), action);
-//					currentSteps = 0;
-//				}
+				//				
+				//				//If flagShip
+				//				if ((current == null || currentSteps >= REPLAN_STEPS) && flagCollected == false) {
+				//					Flag objective = getEnemyFlag(space);
+				//					AbstractAction action = getAStarPathToGoal(space, ship, objective.getPosition());
+				//					actions.put(ship.getId(), action);
+				//					currentSteps = 0;
+				//				}
+				//				
+				//				//return to base ASAP
+				//				if(ship.isCarryingFlag() == true) {
+				//					flagCollected = true;
+				//					Base home = findNearestBase(space, ship);
+				//					AbstractAction action = getAStarPathToGoal(space,ship,home.getPosition());
+				//					actions.put(ship.getId(), action);
+				//				}				
+				//				
+				//				if (current == null || currentSteps >= REPLAN_STEPS) {
+				//					Beacon beacon = pickNearestBeacon(space, ship);
+				//					AbstractAction action = getAStarPathToGoal(space, ship, beacon.getPosition());
+				//					actions.put(ship.getId(), action);
+				//					currentSteps = 0;
+				//				}
 			} else {
 				// it is a base.  Do nothing
 				actions.put(actionable.getId(), new DoNothingAction());
 			}
 		} 
-		currentSteps++;
+
 		return actions;
 	}
-	
+
 	private Base findNearestBase(Toroidal2DPhysics space, Ship ship) {
 		double minDistance = Double.MAX_VALUE;
 		Base nearestBase = null;
@@ -153,7 +164,7 @@ public class ExampleAStarClient extends TeamClient {
 		}
 		return nearestBase;
 	}
-	
+
 	private Flag getEnemyFlag(Toroidal2DPhysics space) {
 		Flag enemyFlag = null;
 		for (Flag flag : space.getFlags()) {
@@ -165,7 +176,7 @@ public class ExampleAStarClient extends TeamClient {
 		}
 		return enemyFlag;
 	}
-	
+
 	/**
 	 * Follow an aStar path to the goal
 	 * @param space
@@ -175,7 +186,7 @@ public class ExampleAStarClient extends TeamClient {
 	 */
 	private AbstractAction getAStarPathToGoal(Toroidal2DPhysics space, Ship ship, Position goalPosition) {
 		AbstractAction newAction;
-		
+
 		Graph graph = AStarSearch.createGraphToGoalWithBeacons(space, ship, goalPosition, new Random());
 		Vertex[] path = graph.findAStarPath(space);
 		followPathAction = new FollowPathAction(path);
@@ -217,14 +228,27 @@ public class ExampleAStarClient extends TeamClient {
 	public void getMovementEnd(Toroidal2DPhysics space, Set<AbstractActionableObject> actionableObjects) {
 		ArrayList<Asteroid> finishedAsteroids = new ArrayList<Asteroid>();
 
+		for (UUID asteroidId : asteroidToShipMap.keySet()) {
+			Asteroid asteroid = (Asteroid) space.getObjectById(asteroidId);
+			if (asteroid == null || !asteroid.isAlive() || asteroid.isMoveable()) {
+				finishedAsteroids.add(asteroid);
+				//System.out.println("Removing asteroid from map");
+			}
+		}
+
+		for (Asteroid asteroid : finishedAsteroids) {
+			asteroidToShipMap.remove(asteroid.getId());
+		}
+
+
 
 	}
 
 	@Override
 	public void initialize(Toroidal2DPhysics space) {
+		asteroidToShipMap = new HashMap<UUID, Ship>();
 		planner = new Planning(space);
 		graphByShip = new HashMap<UUID, Graph>();
-		currentSteps = 0;
 	}
 
 	@Override
@@ -258,6 +282,33 @@ public class ExampleAStarClient extends TeamClient {
 			PurchaseCosts purchaseCosts) {
 
 		return null;
+	}
+	/**
+	 * Returns the asteroid of highest value that isn't already being chased by this team
+	 * 
+	 * @return
+	 */
+	private Asteroid pickHighestValueNearestFreeAsteroid(Toroidal2DPhysics space, Ship ship) {
+		Set<Asteroid> asteroids = space.getAsteroids();
+		int bestMoney = Integer.MIN_VALUE;
+		Asteroid bestAsteroid = null;
+		double minDistance = Double.MAX_VALUE;
+
+		for (Asteroid asteroid : asteroids) {
+			if (!asteroidToShipMap.containsKey(asteroid.getId())) {
+				if (asteroid.isMineable() && asteroid.getResources().getTotal() > bestMoney) {
+					double dist = space.findShortestDistance(asteroid.getPosition(), ship.getPosition());
+					if (dist < minDistance) {
+						bestMoney = asteroid.getResources().getTotal();
+						//System.out.println("Considering asteroid " + asteroid.getId() + " as a best one");
+						bestAsteroid = asteroid;
+						minDistance = dist;
+					}
+				}
+			}
+		}
+		//System.out.println("Best asteroid has " + bestMoney);
+		return bestAsteroid;
 	}
 
 	/**

@@ -95,6 +95,10 @@ public class Planning {
 	 */
 	public void add2RoleHash(UUID shipID, String role) {
 		shipRole.put(shipID, role);
+		if(role.equalsIgnoreCase("flag")) {
+			System.out.println("HERE::::::" + shipID);
+			shipFlag.put(shipID, false);
+		}
 	}
 
 	//ACTIONS
@@ -112,14 +116,16 @@ public class Planning {
 			//if the base is on the left
 			if(baseLeft == true) {
 				Position right = new Position(1270,550);
-				AbstractAction action = new MoveAction(space,ship.getPosition(),right,new Vector2D(0,0));
+				AbstractAction action = getAStarPathToGoal(space,ship,right);
+				//AbstractAction action = new MoveAction(space,ship.getPosition(),right,new Vector2D(0,0));
 				return action;
 				
 			}
 			//if base is on the right
 			else {
 				Position left = new Position(330,550);
-				AbstractAction action = new MoveAction(space,ship.getPosition(),left,new Vector2D(0,0));
+				AbstractAction action = getAStarPathToGoal(space,ship,left);
+				//AbstractAction action = new MoveAction(space,ship.getPosition(),left,new Vector2D(0,0));
 				return action;
 			}
 		}
@@ -208,7 +214,7 @@ public class Planning {
 	public static AbstractAction Move2Flag(Toroidal2DPhysics space,UUID shipID, AbstractObject obj) {
 		//Pre-conditions
 		if(obj instanceof Flag) {
-			if(!isGoal(((Flag) obj))) {
+			if(!isGoal((Flag) obj)) {
 				if(shipRole.get(shipID).equalsIgnoreCase("flag")) {
 					if(obj.getPosition().getX() < 900) {
 						baseLeft = false;
@@ -236,19 +242,21 @@ public class Planning {
 	public static AbstractAction Deposit(Toroidal2DPhysics space, UUID shipID, AbstractObject obj) {
 		//Pre-Conditions
 		Ship ship = (Ship) space.getObjectById(shipID);
-		
-			if(shipFlag.get(shipID).booleanValue()) {
+		HasFlag(shipID,space);
+		System.out.println("Deposit Method");
+			if(shipFlag.get(shipID) != null && shipFlag.get(shipID) == true) {
 				//Deposit Flag
+				System.out.println("Returning to base with flag!");
 				AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
 				//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
-				shipGoal.remove(shipID, obj);
+				//shipGoal.remove(shipID, obj);
 				return action;
 			}
-			if(GetNumResources(shipID,space) >= 5000) {
+			else if(GetNumResources(shipID,space) >= 5000) {
 				//Deposit resources
 				AbstractAction action = getAStarPathToGoal(space, ship, obj.getPosition());
 				//AbstractAction action = new MoveToObjectAction(space,ship.getPosition(),obj);
-				shipGoal.remove(shipID, obj);
+				//shipGoal.remove(shipID, obj);
 				return action;
 			}
 		
@@ -262,7 +270,7 @@ public class Planning {
 	 * @param obj
 	 * @return
 	 */
-	public AbstractAction Move(UUID shipID, AbstractObject obj, Toroidal2DPhysics space) {
+	public static AbstractAction Move(UUID shipID, AbstractObject obj, Toroidal2DPhysics space) {
 		//Pre-Conditions
 		if(obj instanceof Base) {
 			if(!isGoal(((Base) obj))) {
@@ -304,9 +312,6 @@ public class Planning {
 			Ship ship = (Ship) space.getObjectById(shipID);
 			if(ship.isCarryingFlag()) {
 				shipFlag.replace(shipID, true);
-			}
-			else {
-				shipFlag.replace(shipID, false);
 			}
 		}
 	}

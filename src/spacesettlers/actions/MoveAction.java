@@ -163,7 +163,7 @@ public class MoveAction extends AbstractAction {
 	 */
 	protected double pdControlOrient(double positionError, double velocityError) {
 		// tunable parameters; should be in relationship to one another
-		// 2 sqrt(Kp) = Kv
+		// 2*sqrt(Kp) = Kv
 		//double Kv = 2.53;
 		//double Kp = 1.6;
 
